@@ -19,7 +19,8 @@ class ReservaAdapter(
         fun bind(reserva: Reserva, dateFormat: SimpleDateFormat, onReservaClick: (Reserva) -> Unit) {
             binding.textViewFechas.text = "${dateFormat.format(reserva.fechaInicio)} - ${dateFormat.format(reserva.fechaFin)}"
             binding.textViewEstado.text = reserva.estado
-            binding.textViewPrecio.text = "%.2f €".format(reserva.precio)
+            val precioTexto = if (reserva.precio > 0.0) "%.2f €".format(reserva.precio) else "No calculado"
+            binding.textViewPrecio.text = precioTexto
             binding.root.setOnClickListener { onReservaClick(reserva) }
         }
     }

@@ -26,6 +26,10 @@ class RegisterActivity : AppCompatActivity() {
         binding.buttonRegister.setOnClickListener {
             registrarUsuario()
         }
+
+        binding.buttonBackToLogin.setOnClickListener {
+            finish()
+        }
     }
 
     private fun registrarUsuario() {
