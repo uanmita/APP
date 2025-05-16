@@ -52,10 +52,14 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerViews() {
-        // Configurar RecyclerView de vehículos
-        vehiculoAdapter = VehiculoAdapter { vehiculo ->
-            Toast.makeText(this, "Vehículo: ${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.matricula})", Toast.LENGTH_SHORT).show()
-        }
+        vehiculoAdapter = VehiculoAdapter(
+            onVehiculoClick = { vehiculo ->
+                Toast.makeText(this, "Vehículo: ${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.matricula})", Toast.LENGTH_SHORT).show()
+            },
+            onDeleteVehiculo = { vehiculo ->
+                eliminarVehiculo(vehiculo)
+            }
+        )
         binding.recyclerViewVehiculos.apply {
             layoutManager = LinearLayoutManager(this@ProfileActivity)
             adapter = vehiculoAdapter
@@ -166,15 +170,69 @@ class ProfileActivity : AppCompatActivity() {
             }
     }
 
+    private fun eliminarVehiculo(vehiculo: Vehiculo) {
+        db.collection("vehicles").document(vehiculo.id)
+            .delete()
+            .addOnSuccessListener {
+                Toast.makeText(this, "Vehículo eliminado", Toast.LENGTH_SHORT).show()
+                cargarVehiculos(auth.currentUser?.uid ?: "")
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error al eliminar vehículo: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
     private fun configurarBotones() {
         binding.buttonEditProfile.setOnClickListener {
-            // TODO: Implementar edición de perfil
-            Toast.makeText(this, "Función en desarrollo", Toast.LENGTH_SHORT).show()
+            // Diálogo para editar nombre
+            val editText = android.widget.EditText(this)
+            editText.hint = "Nuevo nombre"
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Editar perfil")
+                .setView(editText)
+                .setPositiveButton("Guardar") { _, _ ->
+                    val nuevoNombre = editText.text.toString().trim()
+                    val user = auth.currentUser
+                    if (user != null && nuevoNombre.isNotEmpty()) {
+                        db.collection("customers").document(user.uid)
+                            .update("name", nuevoNombre)
+                            .addOnSuccessListener {
+                                Toast.makeText(this, "Nombre actualizado", Toast.LENGTH_SHORT).show()
+                                binding.textViewName.text = nuevoNombre
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                    }
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
         }
-
         binding.buttonChangePassword.setOnClickListener {
-            // TODO: Implementar cambio de contraseña
-            Toast.makeText(this, "Función en desarrollo", Toast.LENGTH_SHORT).show()
+            // Diálogo para cambiar contraseña
+            val editText = android.widget.EditText(this)
+            editText.hint = "Nueva contraseña"
+            editText.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Cambiar contraseña")
+                .setView(editText)
+                .setPositiveButton("Cambiar") { _, _ ->
+                    val nuevaPassword = editText.text.toString().trim()
+                    val user = auth.currentUser
+                    if (user != null && nuevaPassword.length >= 6) {
+                        user.updatePassword(nuevaPassword)
+                            .addOnSuccessListener {
+                                Toast.makeText(this, "Contraseña actualizada", Toast.LENGTH_SHORT).show()
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            }
+                    } else {
+                        Toast.makeText(this, "La contraseña debe tener al menos 6 caracteres", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
         }
 
         binding.buttonAddVehiculo.setOnClickListener {
@@ -183,8 +241,7 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         binding.buttonNuevaReserva.setOnClickListener {
-            // TODO: Implementar nueva reserva
-            Toast.makeText(this, "Función en desarrollo", Toast.LENGTH_SHORT).show()
+            mostrarDialogoNuevaReserva()
         }
 
         binding.buttonLogout.setOnClickListener {
@@ -194,6 +251,170 @@ class ProfileActivity : AppCompatActivity() {
             startActivity(intent)
             finish()
         }
+    }
+
+    private fun mostrarDialogoNuevaReserva() {
+        val context = this
+        // Cargar vehículos del usuario antes de mostrar el diálogo
+        val userId = auth.currentUser?.uid ?: return
+        db.collection("vehicles")
+            .whereEqualTo("userId", userId)
+            .get()
+            .addOnSuccessListener { documents ->
+                val vehiculos = documents.mapNotNull { doc ->
+                    Vehiculo(
+                        id = doc.id,
+                        marca = doc.getString("make") ?: "",
+                        modelo = doc.getString("model") ?: "",
+                        matricula = doc.getString("plate") ?: "",
+                        userId = doc.getString("userId") ?: userId,
+                        tipo = doc.getString("type") ?: "",
+                        longitud = doc.getString("length") ?: ""
+                    )
+                }
+                mostrarDialogoNuevaReservaConVehiculos(vehiculos)
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(context, "Error al cargar vehículos: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun mostrarDialogoNuevaReservaConVehiculos(vehiculos: List<Vehiculo>) {
+        val context = this
+        val layout = android.widget.ScrollView(context)
+        val innerLayout = android.widget.LinearLayout(context)
+        innerLayout.orientation = android.widget.LinearLayout.VERTICAL
+        innerLayout.setPadding(50, 40, 50, 10)
+
+        // Spinner para elegir vehículo
+        val spinnerVehiculos = android.widget.Spinner(context)
+        val vehiculoLabels = vehiculos.map { "${it.marca} ${it.modelo} (${it.matricula})" }
+        val adapter = android.widget.ArrayAdapter(context, android.R.layout.simple_spinner_item, vehiculoLabels)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerVehiculos.adapter = adapter
+        innerLayout.addView(spinnerVehiculos)
+
+        val editTextNombre = android.widget.EditText(context)
+        editTextNombre.hint = "Nombre"
+        innerLayout.addView(editTextNombre)
+
+        val editTextFechaReserva = android.widget.EditText(context)
+        editTextFechaReserva.hint = "Fecha reserva (yyyy-MM-ddTHH:mm:ss.SSSZ)"
+        innerLayout.addView(editTextFechaReserva)
+
+        val editTextFechaLlegada = android.widget.EditText(context)
+        editTextFechaLlegada.hint = "Fecha llegada (yyyy-MM-dd)"
+        innerLayout.addView(editTextFechaLlegada)
+
+        val editTextFechaSalida = android.widget.EditText(context)
+        editTextFechaSalida.hint = "Fecha salida (yyyy-MM-dd)"
+        innerLayout.addView(editTextFechaSalida)
+
+        val editTextAdultos = android.widget.EditText(context)
+        editTextAdultos.hint = "Adultos"
+        editTextAdultos.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        innerLayout.addView(editTextAdultos)
+
+        val editTextNinos = android.widget.EditText(context)
+        editTextNinos.hint = "Niños"
+        editTextNinos.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        innerLayout.addView(editTextNinos)
+
+        val editTextMascotas = android.widget.EditText(context)
+        editTextMascotas.hint = "Mascotas"
+        editTextMascotas.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        innerLayout.addView(editTextMascotas)
+
+        val editTextComentarios = android.widget.EditText(context)
+        editTextComentarios.hint = "Comentarios"
+        innerLayout.addView(editTextComentarios)
+
+        // Servicios adicionales como checkboxes (excepto Vehículo extra)
+        val serviciosDisponibles = listOf(
+            "Electricidad",
+            "Late check-out",
+            "Lavado"
+        )
+        val checkBoxesServicios = serviciosDisponibles.map { servicio ->
+            android.widget.CheckBox(context).apply { text = servicio }
+        }
+        val serviciosLayout = android.widget.LinearLayout(context)
+        serviciosLayout.orientation = android.widget.LinearLayout.VERTICAL
+        serviciosLayout.setPadding(0, 16, 0, 0)
+        val labelServicios = android.widget.TextView(context)
+        labelServicios.text = "Servicios adicionales:"
+        serviciosLayout.addView(labelServicios)
+        checkBoxesServicios.forEach { serviciosLayout.addView(it) }
+
+        // Vehículo extra como RadioGroup
+        val labelVehiculoExtra = android.widget.TextView(context)
+        labelVehiculoExtra.text = "Vehículo extra (elige uno):"
+        serviciosLayout.addView(labelVehiculoExtra)
+        val radioGroupVehiculoExtra = android.widget.RadioGroup(context)
+        val radioCoche = android.widget.RadioButton(context)
+        radioCoche.text = "Coche (5€)"
+        val radioMoto = android.widget.RadioButton(context)
+        radioMoto.text = "Moto (5€)"
+        radioGroupVehiculoExtra.addView(radioCoche)
+        radioGroupVehiculoExtra.addView(radioMoto)
+        serviciosLayout.addView(radioGroupVehiculoExtra)
+
+        innerLayout.addView(serviciosLayout)
+
+        layout.addView(innerLayout)
+
+        androidx.appcompat.app.AlertDialog.Builder(context)
+            .setTitle("Nueva Reserva")
+            .setView(layout)
+            .setPositiveButton("Guardar") { _, _ ->
+                val user = auth.currentUser
+                val nombre = editTextNombre.text.toString().trim()
+                val fechaReserva = editTextFechaReserva.text.toString().trim()
+                val fechaLlegada = editTextFechaLlegada.text.toString().trim()
+                val fechaSalida = editTextFechaSalida.text.toString().trim()
+                val adultos = editTextAdultos.text.toString().toIntOrNull() ?: 0
+                val ninos = editTextNinos.text.toString().toIntOrNull() ?: 0
+                val mascotas = editTextMascotas.text.toString().toIntOrNull() ?: 0
+                val comentarios = editTextComentarios.text.toString().trim()
+                val serviciosAdicionales = checkBoxesServicios.filter { it.isChecked }.map { it.text.toString() }.toMutableList()
+                val vehiculoExtraSeleccionado = when (radioGroupVehiculoExtra.checkedRadioButtonId) {
+                    radioCoche.id -> "Vehículo extra coche (5€)"
+                    radioMoto.id -> "Vehículo extra moto (5€)"
+                    else -> null
+                }
+                if (vehiculoExtraSeleccionado != null) serviciosAdicionales.add(vehiculoExtraSeleccionado)
+                val vehiculoSeleccionado = if (vehiculos.isNotEmpty()) vehiculos[spinnerVehiculos.selectedItemPosition] else null
+                if (user != null && nombre.isNotEmpty() && fechaLlegada.isNotEmpty() && fechaSalida.isNotEmpty() && vehiculoSeleccionado != null) {
+                    val reserva = hashMapOf(
+                        "nombre" to nombre,
+                        "email" to (user.email ?: ""),
+                        "fechaReserva" to fechaReserva,
+                        "fechaLlegada" to fechaLlegada,
+                        "fechaSalida" to fechaSalida,
+                        "adultos" to adultos,
+                        "ninos" to ninos,
+                        "mascotas" to mascotas,
+                        "comentarios" to comentarios,
+                        "serviciosAdicionales" to serviciosAdicionales,
+                        "vehiculoId" to vehiculoSeleccionado.id,
+                        "vehiculoNombre" to "${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.modelo} (${vehiculoSeleccionado.matricula})",
+                        "estado" to "pendiente"
+                    )
+                    db.collection("reservas")
+                        .add(reserva)
+                        .addOnSuccessListener {
+                            Toast.makeText(context, "Reserva creada", Toast.LENGTH_SHORT).show()
+                            user.email?.let { cargarReservas(it) }
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                } else {
+                    Toast.makeText(context, "Completa los campos obligatorios y selecciona un vehículo", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
