@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">AC El Rinconcito</string>
+    <string name="app_logo" />
+    <string name="hint_email">Introduzca Email\n</string>
+    <string name="hint_password">Password</string>
+    <string name="button_login">Login\n</string>
+    <string name="button_register">Registro</string>
+    <string name="text_register_prompt">Registrese para acceder</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+</resources>
