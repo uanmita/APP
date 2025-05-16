@@ -34,6 +34,12 @@
             android:label="Registro"
             tools:ignore="WrongManifestParent" />
 
+        <activity
+            android:name="com.example.ac_el_rinconcito.ProfileActivity"
+            android:exported="false"
+            android:label="Perfil de Usuario"
+            android:parentActivityName="com.example.ac_el_rinconcito.LoginActivity" />
+
     </application>
 
 </manifest>

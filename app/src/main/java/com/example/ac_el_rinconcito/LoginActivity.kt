@@ -27,7 +27,7 @@ class LoginActivity : AppCompatActivity() {
             iniciarSesion()
         }
 
-        // Configurar el listener para el botón de registro (si lo tienes)
+        // Configurar el listener para el botón de registro
         binding.buttonRegister.setOnClickListener {
             val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
@@ -39,16 +39,16 @@ class LoginActivity : AppCompatActivity() {
         val password = binding.editTextPassword.text.toString()
 
         if (email.isNotEmpty() && password.isNotEmpty()) {
-            mostrarProgressBar(true) // Mostrar la barra de progreso
+            mostrarProgressBar(true)
 
             auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this) { task ->
-                    mostrarProgressBar(false) // Ocultar la barra de progreso
+                    mostrarProgressBar(false)
 
                     if (task.isSuccessful) {
                         // Inicio de sesión correcto
                         Toast.makeText(this, "Inicio de sesión correcto.", Toast.LENGTH_SHORT).show()
-                        val intent = Intent(this, LoginActivity::class.java) // Reemplaza MainActivity con tu actividad principal
+                        val intent = Intent(this, ProfileActivity::class.java)
                         startActivity(intent)
                         finish()
                     } else {
@@ -65,7 +65,6 @@ class LoginActivity : AppCompatActivity() {
 
     private fun mostrarProgressBar(mostrar: Boolean) {
         binding.progressBarLogin.visibility = if (mostrar) View.VISIBLE else View.GONE
-        // Opcional: Deshabilitar los botones mientras se procesa
         binding.buttonLogin.isEnabled = !mostrar
         binding.buttonRegister.isEnabled = !mostrar
     }
