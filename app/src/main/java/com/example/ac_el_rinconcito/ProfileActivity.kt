@@ -61,7 +61,7 @@ class ProfileActivity : AppCompatActivity() {
     private fun setupRecyclerViews() {
         vehiculoAdapter = VehiculoAdapter(
             onVehiculoClick = { vehiculo ->
-                Toast.makeText(this, "Vehículo: ${vehiculo.marca} ${vehiculo.modelo} (${vehiculo.matricula})", Toast.LENGTH_SHORT).show()
+                mostrarDialogoDetallesVehiculo(vehiculo)
             },
             onDeleteVehiculo = { vehiculo ->
                 eliminarVehiculo(vehiculo)
@@ -74,7 +74,7 @@ class ProfileActivity : AppCompatActivity() {
 
         // Configurar RecyclerView de reservas
         reservaAdapter = ReservaAdapter { reserva ->
-            Toast.makeText(this, "Reserva: ${reserva.id}", Toast.LENGTH_SHORT).show()
+            mostrarDialogoDetallesReserva(reserva)
         }
         binding.recyclerViewReservas.apply {
             layoutManager = LinearLayoutManager(this@ProfileActivity)
@@ -702,6 +702,40 @@ class ProfileActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancelar", null)
             .show()
+    }
+
+    private fun mostrarDialogoDetallesReserva(reserva: Reserva) {
+        val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+        builder.setTitle("Detalles de la reserva")
+        val mensaje = StringBuilder()
+        mensaje.append("Nombre: ${reserva.nombre}\n")
+        mensaje.append("Estado: ${reserva.estado}\n")
+        mensaje.append("Fecha de llegada: ${dateFormat.format(reserva.fechaInicio)}\n")
+        mensaje.append("Fecha de salida: ${dateFormat.format(reserva.fechaFin)}\n")
+        mensaje.append("Adultos: ${reserva.adultos}\n")
+        mensaje.append("Niños: ${reserva.ninos}\n")
+        mensaje.append("Mascotas: ${reserva.mascotas}\n")
+        mensaje.append("Precio: ${if (reserva.precio > 0.0) String.format("%.2f €", reserva.precio) else "No calculado"}\n")
+        mensaje.append("Servicios adicionales: ${if (reserva.serviciosAdicionales.isNotEmpty()) reserva.serviciosAdicionales.joinToString(", ") else "Ninguno"}\n")
+        mensaje.append("Comentarios: ${if (reserva.comentarios.isNotEmpty()) reserva.comentarios else "Sin comentarios"}\n")
+        builder.setMessage(mensaje.toString())
+        builder.setPositiveButton("Cerrar", null)
+        builder.show()
+    }
+
+    private fun mostrarDialogoDetallesVehiculo(vehiculo: Vehiculo) {
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+        builder.setTitle("Detalles del vehículo")
+        val mensaje = StringBuilder()
+        mensaje.append("Marca: ${vehiculo.marca}\n")
+        mensaje.append("Modelo: ${vehiculo.modelo}\n")
+        mensaje.append("Matrícula: ${vehiculo.matricula}\n")
+        mensaje.append("Tipo: ${vehiculo.tipo}\n")
+        mensaje.append("Longitud: ${if (vehiculo.longitud.isNotEmpty()) vehiculo.longitud else "No especificada"}\n")
+        builder.setMessage(mensaje.toString())
+        builder.setPositiveButton("Cerrar", null)
+        builder.show()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

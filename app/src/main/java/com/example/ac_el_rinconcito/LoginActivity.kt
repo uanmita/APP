@@ -22,6 +22,15 @@ class LoginActivity : AppCompatActivity() {
         // Inicializar Firebase Auth
         auth = FirebaseAuth.getInstance()
 
+        // Recuperar credenciales si están guardadas
+        val prefs = getSharedPreferences("loginPrefs", MODE_PRIVATE)
+        val emailGuardado = prefs.getString("email", "") ?: ""
+        val passwordGuardado = prefs.getString("password", "") ?: ""
+        val recordar = prefs.getBoolean("recordar", false)
+        binding.editTextEmail.setText(emailGuardado)
+        binding.editTextPassword.setText(passwordGuardado)
+        binding.checkBoxRemember.isChecked = recordar
+
         // Configurar el listener para el botón de inicio de sesión
         binding.buttonLogin.setOnClickListener {
             iniciarSesion()
@@ -37,6 +46,7 @@ class LoginActivity : AppCompatActivity() {
     private fun iniciarSesion() {
         val email = binding.editTextEmail.text.toString()
         val password = binding.editTextPassword.text.toString()
+        val recordar = binding.checkBoxRemember.isChecked
 
         if (email.isNotEmpty() && password.isNotEmpty()) {
             mostrarProgressBar(true)
@@ -46,6 +56,18 @@ class LoginActivity : AppCompatActivity() {
                     mostrarProgressBar(false)
 
                     if (task.isSuccessful) {
+                        // Guardar o limpiar credenciales según el checkbox
+                        val prefs = getSharedPreferences("loginPrefs", MODE_PRIVATE)
+                        val editor = prefs.edit()
+                        if (recordar) {
+                            editor.putString("email", email)
+                            editor.putString("password", password)
+                            editor.putBoolean("recordar", true)
+                        } else {
+                            editor.clear()
+                        }
+                        editor.apply()
+
                         // Inicio de sesión correcto
                         Toast.makeText(this, "Inicio de sesión correcto.", Toast.LENGTH_SHORT).show()
                         val intent = Intent(this, ProfileActivity::class.java)
@@ -54,7 +76,7 @@ class LoginActivity : AppCompatActivity() {
                     } else {
                         // Inicio de sesión fallido
                         val exception = task.exception
-                        Log.e("LoginActivity", "Error en el inicio de sesión: ${exception?.message}", exception)
+                        Log.e("LoginActivity", "Error en el inicio de sesión: ", exception)
                         Toast.makeText(this, "Error en el inicio de sesión: ${exception?.message}", Toast.LENGTH_LONG).show()
                     }
                 }
