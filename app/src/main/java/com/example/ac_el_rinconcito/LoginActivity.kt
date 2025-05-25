@@ -3,7 +3,9 @@ package com.example.ac_el_rinconcito
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.ac_el_rinconcito.databinding.ActivityLoginBinding
@@ -33,7 +35,7 @@ class LoginActivity : AppCompatActivity() {
 
         // Configurar el listener para el botón de inicio de sesión
         binding.buttonLogin.setOnClickListener {
-            iniciarSesion()
+            login()
         }
 
         // Configurar el listener para el botón de registro
@@ -43,46 +45,45 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun iniciarSesion() {
-        val email = binding.editTextEmail.text.toString()
-        val password = binding.editTextPassword.text.toString()
-        val recordar = binding.checkBoxRemember.isChecked
+    private fun showCustomToast(message: String) {
+        val inflater = layoutInflater
+        val layout = inflater.inflate(R.layout.custom_toast, null)
+        val text = layout.findViewById<TextView>(R.id.toastText)
+        text.text = message
 
-        if (email.isNotEmpty() && password.isNotEmpty()) {
-            mostrarProgressBar(true)
+        val toast = Toast(applicationContext)
+        toast.setGravity(Gravity.CENTER_VERTICAL, 0, 0)
+        toast.duration = Toast.LENGTH_SHORT
+        toast.view = layout
+        toast.show()
+    }
 
-            auth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this) { task ->
-                    mostrarProgressBar(false)
+    private fun login() {
+        val email = binding.editTextEmail.text.toString().trim()
+        val password = binding.editTextPassword.text.toString().trim()
+        val checkBoxTerms = binding.checkBoxTerms
 
-                    if (task.isSuccessful) {
-                        // Guardar o limpiar credenciales según el checkbox
-                        val prefs = getSharedPreferences("loginPrefs", MODE_PRIVATE)
-                        val editor = prefs.edit()
-                        if (recordar) {
-                            editor.putString("email", email)
-                            editor.putString("password", password)
-                            editor.putBoolean("recordar", true)
-                        } else {
-                            editor.clear()
-                        }
-                        editor.apply()
-
-                        // Inicio de sesión correcto
-                        Toast.makeText(this, "Inicio de sesión correcto.", Toast.LENGTH_SHORT).show()
-                        val intent = Intent(this, ProfileActivity::class.java)
-                        startActivity(intent)
-                        finish()
-                    } else {
-                        // Inicio de sesión fallido
-                        val exception = task.exception
-                        Log.e("LoginActivity", "Error en el inicio de sesión: ", exception)
-                        Toast.makeText(this, "Error en el inicio de sesión: ${exception?.message}", Toast.LENGTH_LONG).show()
-                    }
-                }
-        } else {
-            Toast.makeText(this, "Por favor, complete todos los campos.", Toast.LENGTH_SHORT).show()
+        if (email.isEmpty() || password.isEmpty()) {
+            showCustomToast("Por favor, completa todos los campos")
+            return
         }
+
+        if (!checkBoxTerms.isChecked) {
+            showCustomToast("Debes aceptar las condiciones de uso para continuar")
+            return
+        }
+
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    showCustomToast("Inicio de sesión correcto")
+                    val intent = Intent(this, ProfileActivity::class.java)
+                    startActivity(intent)
+                    finish()
+                } else {
+                    showCustomToast("Error de autenticación: ${task.exception?.message}")
+                }
+            }
     }
 
     private fun mostrarProgressBar(mostrar: Boolean) {

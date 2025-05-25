@@ -15,5 +15,7 @@ data class Reserva(
     val adultos: Int = 0,
     val ninos: Int = 0,
     val mascotas: Int = 0,
-    val serviciosAdicionales: List<String> = emptyList()
+    val serviciosAdicionales: List<String> = emptyList(),
+    val origen: String = "",
+    val tipoVehiculo: String = ""
 ) 

@@ -28,13 +28,28 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="36dp"
-            android:text="Gestion Reservas"
+            android:text="Gestion Reservas v1.0"
             android:textColor="@color/teal_200"
             android:textSize="24sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/imageViewLogo" />
+
+        <TextView
+            android:id="@+id/textViewTitle2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Neo Desing Studio 2025 © "
+            android:textColor="@color/teal_200"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toTopOf="@+id/imageViewLogo"
+            app:layout_constraintEnd_toEndOf="@+id/imageViewLogo"
+            app:layout_constraintHorizontal_bias="0.496"
+            app:layout_constraintStart_toStartOf="@+id/imageViewLogo"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.0" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/textInputLayoutEmail"
@@ -85,23 +100,33 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/textInputLayoutPassword" />
 
+        <CheckBox
+            android:id="@+id/checkBoxTerms"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Acepto las condiciones de uso"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/black"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/checkBoxRemember" />
+
         <Button
             android:id="@+id/buttonLogin"
             android:layout_width="163dp"
             android:layout_height="41dp"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:backgroundTint="@color/teal_200"
             android:text="@string/button_login"
             android:textColor="@color/white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/checkBoxRemember" />
+            app:layout_constraintTop_toBottomOf="@+id/checkBoxTerms" />
 
         <Button
             android:id="@+id/buttonRegister"
             android:layout_width="163dp"
             android:layout_height="41dp"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="12dp"
             android:backgroundTint="@color/purple_700"
             android:text="@string/button_register"
             android:textColor="@color/white"
@@ -113,10 +138,12 @@
             android:id="@+id/textViewRegister"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="16dp"
             android:text="@string/text_register_prompt"
             android:textColor="@color/black"
             android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/buttonRegister" />

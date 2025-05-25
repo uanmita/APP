@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:padding="0dp"
+    android:background="@drawable/bg_dialog"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/imageViewReservaOrigen"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="24dp"
+        android:src="@drawable/ic_web"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Large"/>
+
+    <TextView
+        android:id="@+id/textViewTituloReserva"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Detalles de la reserva"
+        android:textAlignment="center"
+        android:textStyle="bold"
+        android:textSize="22sp"
+        android:textColor="@color/md_theme_primary"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"/>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E0E0E0"/>
+
+    <LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp">
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_person" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Nombre:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewNombre" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_email" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Email:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewEmail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="8dp"/>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_calendar" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Fechas:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewFechas" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_info" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Estado:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewEstado" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="8dp"/>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_group" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Adultos:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewAdultos" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:text="Niños:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewNinos" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:text="Mascotas:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewMascotas" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="8dp"/>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_directions_bus" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Vehículo:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewVehiculo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:text="Tipo:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewTipoVehiculo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_miscellaneous_services" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Servicios:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewServicios" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_comment" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Comentarios:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewComentarios" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <View android:layout_width="match_parent" android:layout_height="8dp"/>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_attach_money" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Precio:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewPrecio" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:text="Moneda:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewMoneda" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+            <ImageView android:src="@drawable/ic_info" android:layout_width="24dp" android:layout_height="24dp" android:tint="@color/md_theme_primary"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="Origen:" android:textStyle="bold" android:textSize="16sp"/>
+            <TextView android:id="@+id/textViewOrigen" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:textSize="16sp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonCerrar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Cerrar"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:layout_marginTop="8dp"/>
+
+</LinearLayout> 

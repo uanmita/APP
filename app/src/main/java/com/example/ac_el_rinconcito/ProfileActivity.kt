@@ -17,6 +17,10 @@ import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.widget.TextView
+import android.widget.ImageView
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.imageview.ShapeableImageView
 
 class ProfileActivity : AppCompatActivity() {
 
@@ -34,8 +38,11 @@ class ProfileActivity : AppCompatActivity() {
 
         // Configurar Toolbar
         setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "Perfil de Usuario"
+        supportActionBar?.apply {
+            setDisplayHomeAsUpEnabled(true)
+            setDisplayShowHomeEnabled(true)
+            title = "Perfil de Usuario"
+        }
 
         // Inicializar Firebase
         auth = FirebaseAuth.getInstance()
@@ -95,6 +102,28 @@ class ProfileActivity : AppCompatActivity() {
                     if (document != null && document.exists()) {
                         val nombre = document.getString("name") ?: "Usuario"
                         binding.textViewName.text = nombre
+
+                        // Lógica de avatar: comprobar si hay avatar guardado, si no, asignar aleatorio
+                        val avatar = document.getString("avatar")
+                        val avatarRes = when (avatar) {
+                            "female" -> R.drawable.ic_woman
+                            "male" -> R.drawable.ic_man
+                            else -> {
+                                // Asignar aleatorio y guardar
+                                val random = if ((0..1).random() == 0) "male" else "female"
+                                db.collection("customers").document(currentUser.uid).update("avatar", random)
+                                if (random == "female") R.drawable.ic_woman else R.drawable.ic_man
+                            }
+                        }
+                        binding.profileImage.setImageResource(avatarRes)
+
+                        // Cambiar avatar al hacer click y guardar
+                        binding.profileImage.setOnClickListener {
+                            val nuevoAvatar = if (avatar == "female") "male" else "female"
+                            db.collection("customers").document(currentUser.uid).update("avatar", nuevoAvatar)
+                            val nuevoRes = if (nuevoAvatar == "female") R.drawable.ic_woman else R.drawable.ic_man
+                            binding.profileImage.setImageResource(nuevoRes)
+                        }
                     }
                 }
                 .addOnFailureListener { e ->
@@ -111,6 +140,7 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun cargarVehiculos(userId: String) {
+        Log.d("DEBUG", "UID actual: $userId")
         db.collection("vehicles")
             .whereEqualTo("userId", userId)
             .get()
@@ -119,18 +149,19 @@ class ProfileActivity : AppCompatActivity() {
                     try {
                         Vehiculo(
                             id = doc.id,
-                            marca = doc.getString("make") ?: "",
-                            modelo = doc.getString("model") ?: "",
-                            matricula = doc.getString("plate") ?: "",
+                            marca = doc.getString("marca") ?: doc.getString("make") ?: "",
+                            modelo = doc.getString("modelo") ?: doc.getString("model") ?: "",
+                            matricula = doc.getString("matricula") ?: doc.getString("plate") ?: "",
                             userId = doc.getString("userId") ?: userId,
-                            tipo = doc.getString("type") ?: "",
-                            longitud = doc.getString("length") ?: ""
+                            tipo = doc.getString("tipo") ?: doc.getString("type") ?: "",
+                            longitud = doc.getString("longitud") ?: doc.getString("length") ?: ""
                         )
                     } catch (e: Exception) {
                         Log.e("ProfileActivity", "Error al convertir documento de vehículo", e)
                         null
                     }
                 }
+                Log.d("DEBUG", "Vehículos encontrados: ${vehiculos.size}")
                 vehiculoAdapter.updateVehiculos(vehiculos)
             }
             .addOnFailureListener { e ->
@@ -140,40 +171,66 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun cargarReservas(email: String) {
+        Log.d("DEBUG", "Email actual: $email")
         db.collection("reservas")
             .whereEqualTo("email", email)
             .get()
             .addOnSuccessListener { documents ->
-                val reservas = documents.mapNotNull { doc ->
-                    try {
-                        val fechaLlegada = doc.getString("fechaLlegada")
-                        val fechaSalida = doc.getString("fechaSalida")
-                        val fechaReserva = doc.getString("fechaReserva")
-                        val precio = when (val p = doc.get("precio")) {
-                            is Number -> p.toDouble()
-                            else -> 0.0
+                obtenerPreciosYMoneda { precios, preciosVehiculos, preciosExtras, moneda ->
+                    db.collection("vehicles").get().addOnSuccessListener { vehiculosDocs ->
+                        val vehiculosMap = vehiculosDocs.associateBy { it.id }
+                        val reservas = documents.mapNotNull { doc ->
+                            try {
+                                val fechaLlegada = doc.getString("fechaLlegada")
+                                val fechaSalida = doc.getString("fechaSalida")
+                                val fechaReserva = doc.getString("fechaReserva")
+                                val adultos = doc.getLong("adultos")?.toInt() ?: 0
+                                val ninos = doc.getLong("ninos")?.toInt() ?: 0
+                                val mascotas = doc.getLong("mascotas")?.toInt() ?: 0
+                                val serviciosAdicionales = (doc.get("serviciosAdicionales") as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+                                val vehiculoId = doc.getString("vehiculoId") ?: ""
+                                val vehiculoTipo = vehiculosMap[vehiculoId]?.getString("tipo") ?: vehiculosMap[vehiculoId]?.getString("type") ?: doc.getString("tipoVehiculo") ?: ""
+                                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd")
+                                val dateIn = fechaLlegada?.let { if (it.isNotEmpty()) sdf.parse(it) else null }
+                                val dateOut = fechaSalida?.let { if (it.isNotEmpty()) sdf.parse(it) else null }
+                                val noches = if (dateIn != null && dateOut != null) {
+                                    val diff = dateOut.time - dateIn.time
+                                    (diff / (1000 * 60 * 60 * 24)).toInt()
+                                } else 1
+                                val precioGuardado = when (val p = doc.get("precio")) {
+                                    is Number -> p.toDouble()
+                                    else -> 0.0
+                                }
+                                val precioCalculado = if (precioGuardado > 0.0) precioGuardado else calcularPrecioReserva(
+                                    adultos, ninos, mascotas, noches, vehiculoTipo, serviciosAdicionales,
+                                    precios, preciosVehiculos, preciosExtras
+                                ).toDouble()
+                                Log.d("DEBUG", "Reserva ${doc.id} - Precio mostrado: $precioCalculado")
+                                Reserva(
+                                    id = doc.id,
+                                    userId = doc.getString("userId") ?: "",
+                                    vehiculoId = vehiculoId,
+                                    fechaInicio = fechaLlegada?.let { dateFormat.parse(it) } ?: Date(),
+                                    fechaFin = fechaSalida?.let { dateFormat.parse(it) } ?: Date(),
+                                    estado = doc.getString("estado") ?: "PENDIENTE",
+                                    precio = precioCalculado,
+                                    nombre = doc.getString("nombre") ?: "",
+                                    comentarios = doc.getString("comentarios") ?: "",
+                                    adultos = adultos,
+                                    ninos = ninos,
+                                    mascotas = mascotas,
+                                    serviciosAdicionales = serviciosAdicionales,
+                                    origen = doc.getString("origen") ?: "web"
+                                )
+                            } catch (e: Exception) {
+                                Log.e("ProfileActivity", "Error al convertir documento de reserva", e)
+                                null
+                            }
                         }
-                        Reserva(
-                            id = doc.id,
-                            userId = "", // No hay userId, puedes dejarlo vacío o usar el email
-                            vehiculoId = doc.getString("reservaId") ?: "",
-                            fechaInicio = fechaLlegada?.let { dateFormat.parse(it) } ?: Date(),
-                            fechaFin = fechaSalida?.let { dateFormat.parse(it) } ?: Date(),
-                            estado = doc.getString("estado") ?: "PENDIENTE",
-                            precio = precio,
-                            nombre = doc.getString("nombre") ?: "",
-                            comentarios = doc.getString("comentarios") ?: "",
-                            adultos = doc.getLong("adultos")?.toInt() ?: 0,
-                            ninos = doc.getLong("ninos")?.toInt() ?: 0,
-                            mascotas = doc.getLong("mascotas")?.toInt() ?: 0,
-                            serviciosAdicionales = (doc.get("serviciosAdicionales") as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
-                        )
-                    } catch (e: Exception) {
-                        Log.e("ProfileActivity", "Error al convertir documento de reserva", e)
-                        null
+                        Log.d("DEBUG", "Reservas encontradas: ${reservas.size}")
+                        reservaAdapter.updateReservas(reservas)
                     }
                 }
-                reservaAdapter.updateReservas(reservas)
             }
             .addOnFailureListener { e ->
                 Log.e("ProfileActivity", "Error al cargar reservas", e)
@@ -265,88 +322,116 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun mostrarDialogoNuevaReserva() {
         val context = this
-        // Cargar vehículos del usuario antes de mostrar el diálogo
         val userId = auth.currentUser?.uid ?: return
+        Log.d("DEBUG", "Buscando vehículos para userId: $userId")
+        
         db.collection("vehicles")
             .whereEqualTo("userId", userId)
             .get()
             .addOnSuccessListener { documents ->
+                Log.d("DEBUG", "Documentos de vehículos encontrados: ${documents.size()}")
+                documents.forEach { doc ->
+                    Log.d("DEBUG", "Documento vehículo: ${doc.data}")
+                }
+                
                 val vehiculos = documents.mapNotNull { doc ->
-                    Vehiculo(
-                        id = doc.id,
-                        marca = doc.getString("make") ?: "",
-                        modelo = doc.getString("model") ?: "",
-                        matricula = doc.getString("plate") ?: "",
-                        userId = doc.getString("userId") ?: userId,
-                        tipo = doc.getString("type") ?: "",
-                        longitud = doc.getString("length") ?: ""
-                    )
+                    try {
+                        val vehiculo = Vehiculo(
+                            id = doc.id,
+                            marca = doc.getString("marca") ?: doc.getString("make") ?: "",
+                            modelo = doc.getString("modelo") ?: doc.getString("model") ?: "",
+                            matricula = doc.getString("matricula") ?: doc.getString("plate") ?: "",
+                            userId = doc.getString("userId") ?: userId,
+                            tipo = doc.getString("tipo") ?: doc.getString("type") ?: "",
+                            longitud = doc.getString("longitud") ?: doc.getString("length") ?: ""
+                        )
+                        Log.d("DEBUG", "Vehículo mapeado: $vehiculo")
+                        vehiculo
+                    } catch (e: Exception) {
+                        Log.e("DEBUG", "Error al mapear vehículo: ${e.message}")
+                        null
+                    }
+                }
+                Log.d("DEBUG", "Total vehículos mapeados: ${vehiculos.size}")
+                
+                if (vehiculos.isEmpty()) {
+                    Toast.makeText(context, "No tienes vehículos registrados. Añade uno primero.", Toast.LENGTH_LONG).show()
+                    return@addOnSuccessListener
                 }
                 mostrarDialogoNuevaReservaConVehiculos(vehiculos)
             }
             .addOnFailureListener { e ->
+                Log.e("DEBUG", "Error al cargar vehículos: ${e.message}")
                 Toast.makeText(context, "Error al cargar vehículos: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
 
     private fun mostrarDialogoNuevaReservaConVehiculos(vehiculos: List<Vehiculo>) {
-        val context = this
-        val layout = android.widget.ScrollView(context)
-        val innerLayout = android.widget.LinearLayout(context)
-        innerLayout.orientation = android.widget.LinearLayout.VERTICAL
-        innerLayout.setPadding(50, 40, 50, 10)
+        Log.d("DEBUG", "Mostrando diálogo con ${vehiculos.size} vehículos")
+        val dialogView = layoutInflater.inflate(R.layout.dialog_nueva_reserva, null)
+        val spinnerVehiculos = dialogView.findViewById<android.widget.AutoCompleteTextView>(R.id.spinnerVehiculos)
+        val editTextNombre = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.editTextNombre)
+        val editTextFechaLlegada = dialogView.findViewById<android.widget.EditText>(R.id.editTextFechaLlegada)
+        val editTextFechaSalida = dialogView.findViewById<android.widget.EditText>(R.id.editTextFechaSalida)
+        val npAdultos = dialogView.findViewById<android.widget.NumberPicker>(R.id.npAdultos)
+        val npNinos = dialogView.findViewById<android.widget.NumberPicker>(R.id.npNinos)
+        val npMascotas = dialogView.findViewById<android.widget.NumberPicker>(R.id.npMascotas)
+        val editTextComentarios = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.editTextComentarios)
+        val layoutServicios = dialogView.findViewById<android.widget.LinearLayout>(R.id.layoutServicios)
+        val textViewPrecio = dialogView.findViewById<android.widget.TextView>(R.id.textViewPrecio)
 
-        // Spinner para elegir vehículo
-        val spinnerVehiculos = android.widget.Spinner(context)
+        // Configurar el AutoCompleteTextView de vehículos SOLO con marca, modelo y matrícula
         val vehiculoLabels = vehiculos.map { "${it.marca} ${it.modelo} (${it.matricula})" }
-        val adapter = android.widget.ArrayAdapter(context, android.R.layout.simple_spinner_item, vehiculoLabels)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerVehiculos.adapter = adapter
-        innerLayout.addView(spinnerVehiculos)
+        Log.d("DEBUG", "Labels de vehículos: $vehiculoLabels")
+        
+        val adapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            vehiculoLabels
+        )
+        spinnerVehiculos.setAdapter(adapter)
+        
+        // Asegurarse de que el AutoCompleteTextView muestre el primer elemento por defecto
+        if (vehiculos.isNotEmpty()) {
+            spinnerVehiculos.setText(vehiculoLabels[0], false)
+            Log.d("DEBUG", "Texto inicial establecido: ${vehiculoLabels[0]}")
+        }
 
-        val buttonAddVehiculo = android.widget.Button(context)
-        buttonAddVehiculo.text = "Agregar nuevo vehículo"
-        buttonAddVehiculo.setOnClickListener { binding.buttonAddVehiculo.performClick() }
-        innerLayout.addView(buttonAddVehiculo)
+        // Configurar el estilo del dropdown
+        spinnerVehiculos.setOnClickListener {
+            spinnerVehiculos.showDropDown()
+        }
 
-        val editTextNombre = android.widget.EditText(context)
-        editTextNombre.hint = "Nombre"
-        innerLayout.addView(editTextNombre)
+        // Asegurarse de que el dropdown se muestre correctamente
+        spinnerVehiculos.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                spinnerVehiculos.showDropDown()
+            }
+        }
 
-        // Fecha de reserva automática y solo lectura
-        val editTextFechaReserva = android.widget.EditText(context)
-        editTextFechaReserva.hint = "Fecha reserva (auto)"
-        editTextFechaReserva.isFocusable = false
-        editTextFechaReserva.isClickable = false
-        val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(java.util.Date())
-        editTextFechaReserva.setText(now)
-        innerLayout.addView(editTextFechaReserva)
+        // NumberPickers
+        npAdultos.minValue = 0
+        npAdultos.maxValue = 20
+        npAdultos.value = 2
+        npNinos.minValue = 0
+        npNinos.maxValue = 10
+        npMascotas.minValue = 0
+        npMascotas.maxValue = 5
 
-        // Selector de fecha para llegada
-        val editTextFechaLlegada = android.widget.EditText(context)
-        editTextFechaLlegada.hint = "Fecha llegada (yyyy-MM-dd)"
-        editTextFechaLlegada.isFocusable = false
-        editTextFechaLlegada.isClickable = true
-        innerLayout.addView(editTextFechaLlegada)
+        // Fecha llegada/salida con DatePicker
+        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd")
         editTextFechaLlegada.setOnClickListener {
             val c = java.util.Calendar.getInstance()
-            val dpd = android.app.DatePickerDialog(context, { _, year, month, dayOfMonth ->
+            val dpd = android.app.DatePickerDialog(this, { _, year, month, dayOfMonth ->
                 val mes = (month + 1).toString().padStart(2, '0')
                 val dia = dayOfMonth.toString().padStart(2, '0')
                 editTextFechaLlegada.setText("$year-$mes-$dia")
             }, c.get(java.util.Calendar.YEAR), c.get(java.util.Calendar.MONTH), c.get(java.util.Calendar.DAY_OF_MONTH))
             dpd.show()
         }
-
-        // Selector de fecha para salida
-        val editTextFechaSalida = android.widget.EditText(context)
-        editTextFechaSalida.hint = "Fecha salida (yyyy-MM-dd)"
-        editTextFechaSalida.isFocusable = false
-        editTextFechaSalida.isClickable = true
-        innerLayout.addView(editTextFechaSalida)
         editTextFechaSalida.setOnClickListener {
             val c = java.util.Calendar.getInstance()
-            val dpd = android.app.DatePickerDialog(context, { _, year, month, dayOfMonth ->
+            val dpd = android.app.DatePickerDialog(this, { _, year, month, dayOfMonth ->
                 val mes = (month + 1).toString().padStart(2, '0')
                 val dia = dayOfMonth.toString().padStart(2, '0')
                 editTextFechaSalida.setText("$year-$mes-$dia")
@@ -354,394 +439,288 @@ class ProfileActivity : AppCompatActivity() {
             dpd.show()
         }
 
-        // NumberPickers para adultos, niños y mascotas
-        val npAdultos = android.widget.NumberPicker(context)
-        npAdultos.minValue = 0
-        npAdultos.maxValue = 20
-        npAdultos.value = 2
-        val labelAdultos = android.widget.TextView(context)
-        labelAdultos.text = "Adultos"
-        innerLayout.addView(labelAdultos)
-        innerLayout.addView(npAdultos)
-
-        val npNinos = android.widget.NumberPicker(context)
-        npNinos.minValue = 0
-        npNinos.maxValue = 10
-        val labelNinos = android.widget.TextView(context)
-        labelNinos.text = "Niños"
-        innerLayout.addView(labelNinos)
-        innerLayout.addView(npNinos)
-
-        val npMascotas = android.widget.NumberPicker(context)
-        npMascotas.minValue = 0
-        npMascotas.maxValue = 5
-        val labelMascotas = android.widget.TextView(context)
-        labelMascotas.text = "Mascotas"
-        innerLayout.addView(labelMascotas)
-        innerLayout.addView(npMascotas)
-
-        val editTextComentarios = android.widget.EditText(context)
-        editTextComentarios.hint = "Comentarios"
-        innerLayout.addView(editTextComentarios)
-
-        // Servicios adicionales como checkboxes (excepto Vehículo extra)
-        val serviciosDisponibles = listOf(
-            "Electricidad",
-            "Late check-out",
-            "Lavado"
-        )
-        val checkBoxesServicios = serviciosDisponibles.map { servicio ->
-            android.widget.CheckBox(context).apply { text = servicio }
-        }
-        val serviciosLayout = android.widget.LinearLayout(context)
-        serviciosLayout.orientation = android.widget.LinearLayout.VERTICAL
-        serviciosLayout.setPadding(0, 16, 0, 0)
-        val labelServicios = android.widget.TextView(context)
-        labelServicios.text = "Servicios adicionales:"
-        serviciosLayout.addView(labelServicios)
-        checkBoxesServicios.forEach { serviciosLayout.addView(it) }
-
-        // Vehículo extra como RadioGroup
-        val labelVehiculoExtra = android.widget.TextView(context)
-        labelVehiculoExtra.text = "Vehículo extra (elige uno):"
-        serviciosLayout.addView(labelVehiculoExtra)
-        val radioGroupVehiculoExtra = android.widget.RadioGroup(context)
-        val radioCoche = android.widget.RadioButton(context)
-        radioCoche.text = "Coche (5€)"
-        val radioMoto = android.widget.RadioButton(context)
-        radioMoto.text = "Moto (5€)"
-        radioGroupVehiculoExtra.addView(radioCoche)
-        radioGroupVehiculoExtra.addView(radioMoto)
-        serviciosLayout.addView(radioGroupVehiculoExtra)
-
-        innerLayout.addView(serviciosLayout)
-
-        // TextView para mostrar el precio total en tiempo real
-        val textViewPrecio = android.widget.TextView(context)
-        textViewPrecio.textSize = 18f
-        textViewPrecio.setPadding(0, 24, 0, 24)
-        innerLayout.addView(textViewPrecio)
-
-        layout.addView(innerLayout)
-
-        // Función para calcular y mostrar el precio en tiempo real
-        fun calcularYMostrarPrecio() {
-            val db = FirebaseFirestore.getInstance()
-            val pricesRef = db.collection("prices")
-            pricesRef.document("huespedes").get().addOnSuccessListener { docHuespedes ->
-                pricesRef.document("vehicles_base").get().addOnSuccessListener { docVehiculos ->
-                    val preciosServicios = mapOf(
-                        "Electricidad" to 5,
-                        "Late check-out" to 10,
-                        "Lavado" to 12,
-                        "Vehículo extra coche (5€)" to 5,
-                        "Vehículo extra moto (5€)" to 5
-                    )
-                    val precioAdulto = docHuespedes.getLong("adultos")?.toInt() ?: 0
-                    val precioNino = docHuespedes.getLong("niños")?.toInt() ?: 0
-                    val precioMascota = docHuespedes.getLong("mascota")?.toInt() ?: 0
-                    val tipoVehiculo = if (vehiculos.isNotEmpty()) vehiculos[spinnerVehiculos.selectedItemPosition].tipo.lowercase().replace("á", "a").replace(".", "").replace(" ", "") else ""
-                    val precioVehiculoBase = when {
-                        tipoVehiculo.contains("autocaravana") -> docVehiculos.getLong("autocaravana")?.toInt() ?: 0
-                        tipoVehiculo.contains("camper") && !tipoVehiculo.contains("furgoneta") -> docVehiculos.getLong("camper")?.toInt() ?: 0
-                        tipoVehiculo.contains("caravana") -> docVehiculos.getLong("caravana")?.toInt() ?: 0
-                        tipoVehiculo.contains("furgoneta") -> docVehiculos.getLong("furgoneta camper.")?.toInt() ?: 0
-                        else -> 0
-                    }
-                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd")
-                    val dateIn = editTextFechaLlegada.text.toString().let { if (it.isNotEmpty()) sdf.parse(it) else null }
-                    val dateOut = editTextFechaSalida.text.toString().let { if (it.isNotEmpty()) sdf.parse(it) else null }
-                    val noches = if (dateIn != null && dateOut != null) {
-                        val diff = dateOut.time - dateIn.time
-                        (diff / (1000 * 60 * 60 * 24)).toInt()
-                    } else 1
-                    val adultos = npAdultos.value
-                    val ninos = npNinos.value
-                    val mascotas = npMascotas.value
-                    val serviciosAdicionales = checkBoxesServicios.filter { it.isChecked }.map { it.text.toString() }.toMutableList()
-                    val vehiculoExtraSeleccionado = when (radioGroupVehiculoExtra.checkedRadioButtonId) {
-                        radioCoche.id -> "Vehículo extra coche (5€)"
-                        radioMoto.id -> "Vehículo extra moto (5€)"
-                        else -> null
-                    }
-                    if (vehiculoExtraSeleccionado != null) serviciosAdicionales.add(vehiculoExtraSeleccionado)
-                    var precioTotal = 0
-                    precioTotal += adultos * precioAdulto * noches
-                    precioTotal += ninos * precioNino * noches
-                    precioTotal += mascotas * precioMascota * noches
-                    precioTotal += precioVehiculoBase * noches
-                    serviciosAdicionales.forEach { servicio ->
-                        when (servicio) {
-                            "Electricidad" -> precioTotal += (preciosServicios[servicio] ?: 0) * noches
-                            "Late check-out", "Lavado", "Vehículo extra coche (5€)", "Vehículo extra moto (5€)" -> precioTotal += preciosServicios[servicio] ?: 0
-                        }
-                    }
-                    textViewPrecio.text = "Precio total estimado: ${precioTotal}€"
+        obtenerPreciosYMoneda { precios, preciosVehiculos, preciosExtras, moneda ->
+            val nombresServiciosLegibles = mapOf(
+                "late_ch_out" to "Late check out (20.00 horas)",
+                "coche_extra" to "Coche extra en parcela",
+                "electricidad" to "Electricidad por noche",
+                "moto_extra" to "Moto extra en parcela"
+            )
+            val serviciosDisponibles = preciosExtras.keys.toList()
+            val checkBoxesServicios = serviciosDisponibles.map { servicio ->
+                android.widget.CheckBox(this).apply {
+                    text = nombresServiciosLegibles[servicio] ?: servicio.replaceFirstChar { it.uppercase() }
                 }
             }
-        }
+            layoutServicios.removeAllViews()
+            checkBoxesServicios.forEach { layoutServicios.addView(it) }
 
-        // Listeners para recalcular el precio en tiempo real
-        val watcher = object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) { calcularYMostrarPrecio() }
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        }
-        editTextFechaLlegada.addTextChangedListener(watcher)
-        editTextFechaSalida.addTextChangedListener(watcher)
-        spinnerVehiculos.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: android.view.View?, position: Int, id: Long) { calcularYMostrarPrecio() }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
-        }
-        checkBoxesServicios.forEach { it.setOnCheckedChangeListener { _, _ -> calcularYMostrarPrecio() } }
-        radioGroupVehiculoExtra.setOnCheckedChangeListener { _, _ -> calcularYMostrarPrecio() }
-        npAdultos.setOnValueChangedListener { _, _, _ -> calcularYMostrarPrecio() }
-        npNinos.setOnValueChangedListener { _, _, _ -> calcularYMostrarPrecio() }
-        npMascotas.setOnValueChangedListener { _, _, _ -> calcularYMostrarPrecio() }
+            // Función para calcular y mostrar el precio en tiempo real
+            fun calcularYMostrarPrecio() {
+                val dateIn = editTextFechaLlegada.text.toString().let { if (it.isNotEmpty()) sdf.parse(it) else null }
+                val dateOut = editTextFechaSalida.text.toString().let { if (it.isNotEmpty()) sdf.parse(it) else null }
+                val noches = if (dateIn != null && dateOut != null) {
+                    val diff = dateOut.time - dateIn.time
+                    (diff / (1000 * 60 * 60 * 24)).toInt()
+                } else 1
+                val adultos = npAdultos.value
+                val ninos = npNinos.value
+                val mascotas = npMascotas.value
+                val serviciosAdicionales = checkBoxesServicios.filter { it.isChecked }.map { it.text.toString() }
+                val vehiculoSeleccionado = if (vehiculos.isNotEmpty()) vehiculos[vehiculoLabels.indexOf(spinnerVehiculos.text.toString())] else null
+                val tipoVehiculo = vehiculoSeleccionado?.tipo ?: ""
+                val precioTotal = calcularPrecioReserva(
+                    adultos, ninos, mascotas, noches, tipoVehiculo, serviciosAdicionales,
+                    precios, preciosVehiculos, preciosExtras
+                )
+                textViewPrecio.text = "Precio estimado: ${precioTotal} $moneda"
+            }
 
-        // Mostrar precio inicial
-        calcularYMostrarPrecio()
+            // Listeners para recalcular el precio en tiempo real
+            val watcher = object : android.text.TextWatcher {
+                override fun afterTextChanged(s: android.text.Editable?) { calcularYMostrarPrecio() }
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            }
+            editTextFechaLlegada.addTextChangedListener(watcher)
+            editTextFechaSalida.addTextChangedListener(watcher)
+            spinnerVehiculos.addTextChangedListener(watcher)
+            checkBoxesServicios.forEach { it.setOnCheckedChangeListener { _, _ -> calcularYMostrarPrecio() } }
+            npAdultos.setOnValueChangedListener { _, _, _ -> calcularYMostrarPrecio() }
+            npNinos.setOnValueChangedListener { _, _, _ -> calcularYMostrarPrecio() }
+            npMascotas.setOnValueChangedListener { _, _, _ -> calcularYMostrarPrecio() }
 
-        androidx.appcompat.app.AlertDialog.Builder(context)
-            .setTitle("Nueva Reserva")
-            .setView(layout)
-            .setPositiveButton("Guardar") { _, _ ->
+            // Mostrar precio inicial
+            calcularYMostrarPrecio()
+
+            val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(false)
+                .create()
+
+            dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.buttonCancelarReserva).setOnClickListener {
+                dialog.dismiss()
+            }
+            dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.buttonGuardarReserva).setOnClickListener {
                 val user = auth.currentUser
                 val nombre = editTextNombre.text.toString().trim()
-                val fechaReserva = editTextFechaReserva.text.toString().trim()
                 val fechaLlegada = editTextFechaLlegada.text.toString().trim()
                 val fechaSalida = editTextFechaSalida.text.toString().trim()
                 val adultos = npAdultos.value
                 val ninos = npNinos.value
                 val mascotas = npMascotas.value
                 val comentarios = editTextComentarios.text.toString().trim()
-                val serviciosAdicionales = checkBoxesServicios.filter { it.isChecked }.map { it.text.toString() }.toMutableList()
-                val vehiculoExtraSeleccionado = when (radioGroupVehiculoExtra.checkedRadioButtonId) {
-                    radioCoche.id -> "Vehículo extra coche (5€)"
-                    radioMoto.id -> "Vehículo extra moto (5€)"
-                    else -> null
-                }
-                if (vehiculoExtraSeleccionado != null) serviciosAdicionales.add(vehiculoExtraSeleccionado)
-                val vehiculoSeleccionado = if (vehiculos.isNotEmpty()) vehiculos[spinnerVehiculos.selectedItemPosition] else null
-                if (user != null && nombre.isNotEmpty() && fechaLlegada.isNotEmpty() && fechaSalida.isNotEmpty() && vehiculoSeleccionado != null) {
-                    calcularPrecioYGuardarReserva(
-                        user,
-                        nombre,
-                        fechaReserva,
-                        fechaLlegada,
-                        fechaSalida,
-                        adultos,
-                        ninos,
-                        mascotas,
-                        comentarios,
-                        serviciosAdicionales,
-                        vehiculoSeleccionado,
-                        vehiculoExtraSeleccionado
-                    )
-                } else {
-                    Toast.makeText(context, "Completa los campos obligatorios y selecciona un vehículo", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
-    private fun calcularPrecioYGuardarReserva(
-        user: com.google.firebase.auth.FirebaseUser,
-        nombre: String,
-        fechaReserva: String,
-        fechaLlegada: String,
-        fechaSalida: String,
-        adultos: Int,
-        ninos: Int,
-        mascotas: Int,
-        comentarios: String,
-        serviciosAdicionales: List<String>,
-        vehiculoSeleccionado: Vehiculo,
-        vehiculoExtraSeleccionado: String?
-    ) {
-        val context = this
-        val db = FirebaseFirestore.getInstance()
-        // Leer precios de Firestore
-        val pricesRef = db.collection("prices")
-        pricesRef.document("huespedes").get().addOnSuccessListener { docHuespedes ->
-            pricesRef.document("vehicles_base").get().addOnSuccessListener { docVehiculos ->
-                // Leer precios de servicios extra (hardcodeados aquí, puedes leerlos de Firestore si los tienes)
-                val preciosServicios = mapOf(
-                    "Electricidad" to 5,
-                    "Late check-out" to 10,
-                    "Lavado" to 12,
-                    "Vehículo extra coche (5€)" to 5,
-                    "Vehículo extra moto (5€)" to 5
-                )
-                // Precios de huéspedes
-                val precioAdulto = docHuespedes.getLong("adultos")?.toInt() ?: 0
-                val precioNino = docHuespedes.getLong("niños")?.toInt() ?: 0
-                val precioMascota = docHuespedes.getLong("mascota")?.toInt() ?: 0
-                // Precio del vehículo base
-                val tipoVehiculo = vehiculoSeleccionado.tipo.lowercase().replace("á", "a").replace(".", "").replace(" ", "")
-                val precioVehiculoBase = when {
-                    tipoVehiculo.contains("autocaravana") -> docVehiculos.getLong("autocaravana")?.toInt() ?: 0
-                    tipoVehiculo.contains("camper") && !tipoVehiculo.contains("furgoneta") -> docVehiculos.getLong("camper")?.toInt() ?: 0
-                    tipoVehiculo.contains("caravana") -> docVehiculos.getLong("caravana")?.toInt() ?: 0
-                    tipoVehiculo.contains("furgoneta") -> docVehiculos.getLong("furgoneta camper.")?.toInt() ?: 0
-                    else -> 0
-                }
-                // Calcular noches
-                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd")
-                val dateIn = sdf.parse(fechaLlegada)
-                val dateOut = sdf.parse(fechaSalida)
+                val serviciosAdicionales = checkBoxesServicios.filter { it.isChecked }.map { it.text.toString() }
+                val vehiculoSeleccionado = if (vehiculos.isNotEmpty()) vehiculos[vehiculoLabels.indexOf(spinnerVehiculos.text.toString())] else null
+                val tipoVehiculo = vehiculoSeleccionado?.tipo ?: ""
+                val dateIn = fechaLlegada.let { if (it.isNotEmpty()) sdf.parse(it) else null }
+                val dateOut = fechaSalida.let { if (it.isNotEmpty()) sdf.parse(it) else null }
                 val noches = if (dateIn != null && dateOut != null) {
                     val diff = dateOut.time - dateIn.time
                     (diff / (1000 * 60 * 60 * 24)).toInt()
                 } else 1
-                // Calcular precio total
-                var precioTotal = 0
-                precioTotal += adultos * precioAdulto * noches
-                precioTotal += ninos * precioNino * noches
-                precioTotal += mascotas * precioMascota * noches
-                precioTotal += precioVehiculoBase * noches
-                // Servicios adicionales
-                serviciosAdicionales.forEach { servicio ->
-                    when (servicio) {
-                        "Electricidad" -> precioTotal += (preciosServicios[servicio] ?: 0) * noches
-                        "Late check-out", "Lavado", "Vehículo extra coche (5€)", "Vehículo extra moto (5€)" -> precioTotal += preciosServicios[servicio] ?: 0
-                    }
-                }
-                // Guardar reserva
-                val reserva = hashMapOf(
-                    "nombre" to nombre,
-                    "email" to (user.email ?: ""),
-                    "fechaReserva" to fechaReserva,
-                    "fechaLlegada" to fechaLlegada,
-                    "fechaSalida" to fechaSalida,
-                    "adultos" to adultos,
-                    "ninos" to ninos,
-                    "mascotas" to mascotas,
-                    "comentarios" to comentarios,
-                    "serviciosAdicionales" to serviciosAdicionales,
-                    "vehiculoId" to vehiculoSeleccionado.id,
-                    "vehiculoNombre" to "${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.modelo} (${vehiculoSeleccionado.matricula})",
-                    "estado" to "pendiente",
-                    "precio" to precioTotal
+                val precioTotal = calcularPrecioReserva(
+                    adultos, ninos, mascotas, noches, tipoVehiculo, serviciosAdicionales,
+                    precios, preciosVehiculos, preciosExtras
                 )
-                db.collection("reservas")
-                    .add(reserva)
-                    .addOnSuccessListener {
-                        Toast.makeText(context, "Reserva creada. Precio total: ${precioTotal}€", Toast.LENGTH_LONG).show()
-                        user.email?.let { cargarReservas(it) }
-                    }
-                    .addOnFailureListener { e ->
-                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
+                if (user != null && nombre.isNotEmpty() && fechaLlegada.isNotEmpty() && fechaSalida.isNotEmpty() && vehiculoSeleccionado != null) {
+                    val reserva = hashMapOf(
+                        "nombre" to nombre,
+                        "email" to (user.email ?: ""),
+                        "fechaReserva" to java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(java.util.Date()),
+                        "fechaLlegada" to fechaLlegada,
+                        "fechaSalida" to fechaSalida,
+                        "adultos" to adultos,
+                        "ninos" to ninos,
+                        "mascotas" to mascotas,
+                        "comentarios" to comentarios,
+                        "serviciosAdicionales" to serviciosAdicionales,
+                        "vehiculoId" to vehiculoSeleccionado.id,
+                        "vehiculoNombre" to "${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.modelo} (${vehiculoSeleccionado.matricula})",
+                        "tipoVehiculo" to tipoVehiculo,
+                        "estado" to "pendiente",
+                        "precio" to precioTotal,
+                        "moneda" to moneda,
+                        "origen" to "app"
+                    )
+                    db.collection("reservas")
+                        .add(reserva)
+                        .addOnSuccessListener {
+                            Toast.makeText(this, "Reserva creada. Precio total: ${precioTotal} $moneda", Toast.LENGTH_LONG).show()
+                            user.email?.let { cargarReservas(it) }
+                            dialog.dismiss()
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                } else {
+                    Toast.makeText(this, "Completa los campos obligatorios y selecciona un vehículo", Toast.LENGTH_SHORT).show()
+                }
             }
+            dialog.show()
         }
     }
 
     private fun mostrarDialogoNuevoVehiculo() {
-        val context = this
-        val layout = android.widget.LinearLayout(context)
-        layout.orientation = android.widget.LinearLayout.VERTICAL
-        layout.setPadding(50, 40, 50, 10)
+        val dialogView = layoutInflater.inflate(R.layout.dialog_nuevo_vehiculo, null)
+        val editTextMarca = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.editTextMarca)
+        val editTextModelo = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.editTextModelo)
+        val editTextMatricula = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.editTextMatricula)
+        val autoCompleteTipo = dialogView.findViewById<android.widget.AutoCompleteTextView>(R.id.autoCompleteTipo)
+        val editTextLongitud = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.editTextLongitud)
 
-        val editTextMarca = android.widget.EditText(context)
-        editTextMarca.hint = "Marca"
-        layout.addView(editTextMarca)
+        val tiposVehiculo = listOf("autocaravana", "camper", "caravana", "furgoneta camper")
+        val tiposVehiculoCapitalizados = tiposVehiculo.map { it.replaceFirstChar { c -> c.uppercase() } }
+        val adapterTipo = android.widget.ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, tiposVehiculoCapitalizados)
+        autoCompleteTipo.setAdapter(adapterTipo)
+        // Forzar apertura del menú al hacer clic o enfocar
+        autoCompleteTipo.setOnClickListener { autoCompleteTipo.showDropDown() }
+        autoCompleteTipo.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) autoCompleteTipo.showDropDown() }
+        // Evitar que el usuario escriba valores no válidos
+        autoCompleteTipo.setKeyListener(null)
 
-        val editTextModelo = android.widget.EditText(context)
-        editTextModelo.hint = "Modelo"
-        layout.addView(editTextModelo)
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
 
-        val editTextMatricula = android.widget.EditText(context)
-        editTextMatricula.hint = "Matrícula"
-        layout.addView(editTextMatricula)
-
-        // Spinner para tipo de vehículo
-        val tiposVehiculo = listOf("autocaravana", "camper", "caravana", "furgoneta camper.")
-        val spinnerTipo = android.widget.Spinner(context)
-        val adapterTipo = android.widget.ArrayAdapter(context, android.R.layout.simple_spinner_item, tiposVehiculo)
-        adapterTipo.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerTipo.adapter = adapterTipo
-        layout.addView(spinnerTipo)
-
-        val editTextLongitud = android.widget.EditText(context)
-        editTextLongitud.hint = "Longitud (opcional)"
-        layout.addView(editTextLongitud)
-
-        androidx.appcompat.app.AlertDialog.Builder(context)
-            .setTitle("Nuevo Vehículo")
-            .setView(layout)
-            .setPositiveButton("Guardar") { _, _ ->
-                val user = auth.currentUser
-                val marca = editTextMarca.text.toString().trim()
-                val modelo = editTextModelo.text.toString().trim()
-                val matricula = editTextMatricula.text.toString().trim()
-                val tipo = tiposVehiculo[spinnerTipo.selectedItemPosition]
-                val longitud = editTextLongitud.text.toString().trim()
-                if (user != null && marca.isNotEmpty() && modelo.isNotEmpty() && matricula.isNotEmpty() && tipo.isNotEmpty()) {
-                    val vehiculo = hashMapOf(
-                        "make" to marca,
-                        "model" to modelo,
-                        "plate" to matricula,
-                        "type" to tipo,
-                        "length" to longitud,
-                        "userId" to user.uid
-                    )
-                    db.collection("vehicles")
-                        .add(vehiculo)
-                        .addOnSuccessListener {
-                            Toast.makeText(context, "Vehículo añadido", Toast.LENGTH_SHORT).show()
-                            cargarVehiculos(user.uid)
-                        }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                } else {
-                    Toast.makeText(context, "Completa todos los campos obligatorios", Toast.LENGTH_SHORT).show()
-                }
+        dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.buttonCancelarVehiculo).setOnClickListener {
+            dialog.dismiss()
+        }
+        dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.buttonGuardarVehiculo).setOnClickListener {
+            val user = auth.currentUser
+            val marca = editTextMarca.text.toString().trim()
+            val modelo = editTextModelo.text.toString().trim()
+            val matricula = editTextMatricula.text.toString().trim()
+            val tipo = autoCompleteTipo.text.toString().trim()
+            val longitud = editTextLongitud.text.toString().trim()
+            if (user != null && marca.isNotEmpty() && modelo.isNotEmpty() && matricula.isNotEmpty() && tipo.isNotEmpty()) {
+                val tiposVehiculo = listOf("autocaravana", "camper", "caravana", "furgoneta camper")
+                val tipoParaGuardar = tiposVehiculo.find { tipo.equals(it, ignoreCase = true) } ?: tipo.lowercase()
+                val vehiculo = hashMapOf(
+                    "make" to marca,
+                    "model" to modelo,
+                    "plate" to matricula,
+                    "type" to tipoParaGuardar,
+                    "length" to longitud,
+                    "userId" to user.uid
+                )
+                db.collection("vehicles")
+                    .add(vehiculo)
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Vehículo añadido", Toast.LENGTH_SHORT).show()
+                        cargarVehiculos(user.uid)
+                        dialog.dismiss()
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+            } else {
+                Toast.makeText(this, "Completa todos los campos obligatorios", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Cancelar", null)
-            .show()
+        }
+        dialog.show()
     }
 
     private fun mostrarDialogoDetallesReserva(reserva: Reserva) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_detalle_reserva, null)
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
         val dateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
-        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
-        builder.setTitle("Detalles de la reserva")
-        val mensaje = StringBuilder()
-        mensaje.append("Nombre: ${reserva.nombre}\n")
-        mensaje.append("Estado: ${reserva.estado}\n")
-        mensaje.append("Fecha de llegada: ${dateFormat.format(reserva.fechaInicio)}\n")
-        mensaje.append("Fecha de salida: ${dateFormat.format(reserva.fechaFin)}\n")
-        mensaje.append("Adultos: ${reserva.adultos}\n")
-        mensaje.append("Niños: ${reserva.ninos}\n")
-        mensaje.append("Mascotas: ${reserva.mascotas}\n")
-        mensaje.append("Precio: ${if (reserva.precio > 0.0) String.format("%.2f €", reserva.precio) else "No calculado"}\n")
-        mensaje.append("Servicios adicionales: ${if (reserva.serviciosAdicionales.isNotEmpty()) reserva.serviciosAdicionales.joinToString(", ") else "Ninguno"}\n")
-        mensaje.append("Comentarios: ${if (reserva.comentarios.isNotEmpty()) reserva.comentarios else "Sin comentarios"}\n")
-        builder.setMessage(mensaje.toString())
-        builder.setPositiveButton("Cerrar", null)
-        builder.show()
+        dialogView.findViewById<TextView>(R.id.textViewNombre).text = reserva.nombre
+        val userEmail = auth.currentUser?.email ?: "-"
+        dialogView.findViewById<TextView>(R.id.textViewEmail).text = userEmail
+        dialogView.findViewById<TextView>(R.id.textViewFechas).text = "Llegada: ${dateFormat.format(reserva.fechaInicio)}\nSalida: ${dateFormat.format(reserva.fechaFin)}"
+        dialogView.findViewById<TextView>(R.id.textViewEstado).text = reserva.estado
+        dialogView.findViewById<TextView>(R.id.textViewAdultos).text = "${reserva.adultos}"
+        dialogView.findViewById<TextView>(R.id.textViewNinos).text = "${reserva.ninos}"
+        dialogView.findViewById<TextView>(R.id.textViewMascotas).text = "${reserva.mascotas}"
+        dialogView.findViewById<TextView>(R.id.textViewVehiculo).text = reserva.vehiculoId
+        dialogView.findViewById<TextView>(R.id.textViewTipoVehiculo).text = reserva.tipoVehiculo ?: "-"
+        dialogView.findViewById<TextView>(R.id.textViewServicios).text = reserva.serviciosAdicionales.joinToString(", ")
+        dialogView.findViewById<TextView>(R.id.textViewComentarios).text = reserva.comentarios
+        dialogView.findViewById<TextView>(R.id.textViewPrecio).text = String.format("%.2f", reserva.precio)
+        dialogView.findViewById<TextView>(R.id.textViewMoneda).text = "€"
+        dialogView.findViewById<TextView>(R.id.textViewOrigen).text = if (reserva.origen == "app") "Reserva creada en la app" else "Reserva creada en la web"
+        dialogView.findViewById<ImageView>(R.id.imageViewReservaOrigen).setImageResource(
+            if (reserva.origen == "app") R.drawable.ic_app else R.drawable.ic_web
+        )
+        dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.buttonCerrar).setOnClickListener { dialog.dismiss() }
+        dialog.show()
     }
 
     private fun mostrarDialogoDetallesVehiculo(vehiculo: Vehiculo) {
-        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
-        builder.setTitle("Detalles del vehículo")
-        val mensaje = StringBuilder()
-        mensaje.append("Marca: ${vehiculo.marca}\n")
-        mensaje.append("Modelo: ${vehiculo.modelo}\n")
-        mensaje.append("Matrícula: ${vehiculo.matricula}\n")
-        mensaje.append("Tipo: ${vehiculo.tipo}\n")
-        mensaje.append("Longitud: ${if (vehiculo.longitud.isNotEmpty()) vehiculo.longitud else "No especificada"}\n")
-        builder.setMessage(mensaje.toString())
-        builder.setPositiveButton("Cerrar", null)
-        builder.show()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_detalle_vehiculo, null)
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        dialogView.findViewById<TextView>(R.id.textViewMarca).text = vehiculo.marca
+        dialogView.findViewById<TextView>(R.id.textViewModelo).text = vehiculo.modelo
+        dialogView.findViewById<TextView>(R.id.textViewMatricula).text = vehiculo.matricula
+        dialogView.findViewById<TextView>(R.id.textViewTipo).text = vehiculo.tipo
+        dialogView.findViewById<TextView>(R.id.textViewLongitud).text = if (vehiculo.longitud.isNotEmpty()) vehiculo.longitud else "No especificada"
+        dialogView.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.imageViewVehiculoIcon).setImageResource(R.drawable.ic_autocaravana)
+        dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.buttonCerrarVehiculo).setOnClickListener { dialog.dismiss() }
+        dialog.show()
+    }
+
+    // Utilidad para obtener todos los precios y la moneda de Firestore
+    private fun obtenerPreciosYMoneda(callback: (precios: Map<String, Number>, preciosVehiculos: Map<String, Number>, preciosExtras: Map<String, Number>, moneda: String) -> Unit) {
+        val db = FirebaseFirestore.getInstance()
+        val pricesRef = db.collection("prices")
+        val precios = mutableMapOf<String, Number>()
+        val preciosVehiculos = mutableMapOf<String, Number>()
+        val preciosExtras = mutableMapOf<String, Number>()
+        var moneda = "€"
+        pricesRef.document("huespedes").get().addOnSuccessListener { docHuespedes ->
+            docHuespedes.data?.forEach { precios[it.key] = it.value as Number }
+            pricesRef.document("vehicles_base").get().addOnSuccessListener { docVehiculos ->
+                docVehiculos.data?.forEach { preciosVehiculos[it.key] = it.value as Number }
+                pricesRef.document("extra_services").get().addOnSuccessListener { docExtras ->
+                    docExtras.data?.forEach { preciosExtras[it.key] = it.value as Number }
+                    pricesRef.document("config").get().addOnSuccessListener { docConfig ->
+                        moneda = docConfig.getString("moneda") ?: "€"
+                        callback(precios, preciosVehiculos, preciosExtras, moneda)
+                    }
+                }
+            }
+        }
+    }
+
+    // Función para calcular el precio total
+    private fun calcularPrecioReserva(
+        adultos: Int,
+        ninos: Int,
+        mascotas: Int,
+        noches: Int,
+        tipoVehiculo: String,
+        serviciosAdicionales: List<String>,
+        precios: Map<String, Number>,
+        preciosVehiculos: Map<String, Number>,
+        preciosExtras: Map<String, Number>
+    ): Int {
+        var total = 0
+        total += adultos * (precios["adultos"]?.toInt() ?: 0) * noches
+        total += ninos * (precios["niños"]?.toInt() ?: 0) * noches
+        total += mascotas * (precios["mascota"]?.toInt() ?: 0) * noches
+        // Precio base vehículo SOLO una vez
+        total += preciosVehiculos[tipoVehiculo] ?.toInt() ?: 0
+        serviciosAdicionales.forEach { servicio ->
+            when (servicio) {
+                "late_ch_out" -> total += preciosExtras[servicio]?.toInt() ?: 0 // solo una vez
+                else -> total += (preciosExtras[servicio]?.toInt() ?: 0) * noches
+            }
+        }
+        return total
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                onBackPressed()
+                finish()
                 true
             }
             else -> super.onOptionsItemSelected(item)

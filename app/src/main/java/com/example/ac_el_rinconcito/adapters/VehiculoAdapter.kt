@@ -16,6 +16,23 @@ class VehiculoAdapter(
         fun bind(vehiculo: Vehiculo, onVehiculoClick: (Vehiculo) -> Unit, onDeleteVehiculo: (Vehiculo) -> Unit) {
             binding.textViewMarcaModelo.text = "${vehiculo.marca} ${vehiculo.modelo}"
             binding.textViewMatricula.text = vehiculo.matricula
+            // Icono de origen
+            val iconRes = when (vehiculo.origen) {
+                "app" -> com.example.ac_el_rinconcito.R.drawable.ic_app
+                else -> com.example.ac_el_rinconcito.R.drawable.ic_web
+            }
+            binding.imageViewOrigenVehiculo.setImageResource(iconRes)
+            // Animación simple (escalado)
+            binding.imageViewOrigenVehiculo.animate().scaleX(1.2f).scaleY(1.2f).setDuration(200).withEndAction {
+                binding.imageViewOrigenVehiculo.animate().scaleX(1f).scaleY(1f).setDuration(200).start()
+            }.start()
+            // Tooltip
+            val tooltip = if (vehiculo.origen == "app") "Vehículo añadido desde la app" else "Vehículo añadido desde la web"
+            binding.imageViewOrigenVehiculo.contentDescription = tooltip
+            binding.imageViewOrigenVehiculo.setOnLongClickListener {
+                android.widget.Toast.makeText(binding.root.context, tooltip, android.widget.Toast.LENGTH_SHORT).show()
+                true
+            }
             binding.root.setOnClickListener { onVehiculoClick(vehiculo) }
             binding.buttonDeleteVehiculo.setOnClickListener { onDeleteVehiculo(vehiculo) }
         }

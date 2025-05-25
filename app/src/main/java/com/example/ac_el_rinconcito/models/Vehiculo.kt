@@ -7,5 +7,6 @@ data class Vehiculo(
     val matricula: String = "",
     val userId: String = "",
     val tipo: String = "",
-    val longitud: String = ""
+    val longitud: String = "",
+    val origen: String = ""
 ) 

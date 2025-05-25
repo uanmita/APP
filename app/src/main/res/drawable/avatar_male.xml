@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Large blue circle (head) -->
+    <path
+        android:fillColor="#90CAF9"
+        android:pathData="M50,35 m-25,0 a25,25 0 1,0 50,0 a25,25 0 1,0 -50,0" />
+
+    <!-- Blue rectangle (body) -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M20,60 h60 v30 h-60 z" />
+
+    <!-- White face circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,40 m-18,0 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0" />
+
+    <!-- Inner blue face circle -->
+    <path
+        android:fillColor="#90CAF9"
+        android:pathData="M50,40 m-14,0 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0" />
+</vector> 

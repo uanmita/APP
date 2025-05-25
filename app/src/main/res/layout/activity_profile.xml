@@ -50,28 +50,39 @@
                         android:orientation="vertical"
                         android:padding="16dp">
 
-                        <de.hdodenhof.circleimageview.CircleImageView
-                            android:id="@+id/profileImage"
-                            android:layout_width="100dp"
-                            android:layout_height="100dp"
-                            android:src="@drawable/logo_rinconcito" />
-
-                        <TextView
-                            android:id="@+id/textViewName"
-                            android:layout_width="wrap_content"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="16dp"
-                            android:text="Nombre Usuario"
-                            android:textSize="20sp"
-                            android:textStyle="bold" />
+                            android:gravity="center_horizontal"
+                            android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/textViewEmail"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:text="email@ejemplo.com"
-                            android:textSize="16sp" />
+                            <de.hdodenhof.circleimageview.CircleImageView
+                                android:id="@+id/profileImage"
+                                android:layout_width="100dp"
+                                android:layout_height="100dp"
+                                android:layout_gravity="center_horizontal"
+                                android:layout_marginBottom="12dp"
+                                android:src="@drawable/ic_man" />
+
+                            <TextView
+                                android:id="@+id/textViewName"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_horizontal"
+                                android:text="Nombre Usuario"
+                                android:textSize="20sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/textViewEmail"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:gravity="center_horizontal"
+                                android:text="email@ejemplo.com"
+                                android:textSize="16sp" />
+
+                        </LinearLayout>
 
                     </LinearLayout>
 
