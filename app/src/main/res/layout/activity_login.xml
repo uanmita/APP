@@ -141,7 +141,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginBottom="16dp"
             android:text="@string/text_register_prompt"
-            android:textColor="@color/black"
+            android:textColor="@color/teal_200"
             android:textSize="12sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"

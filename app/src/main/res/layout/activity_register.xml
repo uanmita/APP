@@ -6,6 +6,36 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Requisitos: contraseña de al menos 8 caracteres, un número y una letra mayúscula y un caracter especial."
+        android:textAlignment="center"
+        android:textColor="@color/teal_700"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toTopOf="@+id/buttonRegister"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/editTextConfirmPassword"
+        app:layout_constraintVertical_bias="0.18" />
+
+    <TextView
+        android:id="@+id/textViewTitle2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Neo Desing Studio 2025 © "
+        android:textColor="@color/teal_200"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/imageViewLogo"
+        app:layout_constraintEnd_toEndOf="@+id/imageViewLogo"
+        app:layout_constraintHorizontal_bias="0.496"
+        app:layout_constraintStart_toStartOf="@+id/imageViewLogo"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
+
     <ImageView
         android:id="@+id/imageViewLogo"
         android:layout_width="219dp"
@@ -65,10 +95,24 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/editTextPassword" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="¿Ya tienes una cuenta? Vuelve a inicio y entra en tu cuenta."
+        android:textAlignment="center"
+        android:textColor="@color/teal_200"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toTopOf="@+id/buttonBackToLogin"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.491"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/buttonRegister"
+        app:layout_constraintVertical_bias="0.656" />
+
     <Button
         android:id="@+id/buttonRegister"
-        android:layout_width="234dp"
-        android:layout_height="57dp"
+        android:layout_width="220dp"
+        android:layout_height="50dp"
         android:layout_marginBottom="16dp"
         android:text="Registrarse"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -78,14 +122,15 @@
 
     <Button
         android:id="@+id/buttonBackToLogin"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Volver a inicio"
-        android:layout_marginTop="16dp"
+        android:layout_width="220dp"
+        android:layout_height="50dp"
+        android:layout_marginTop="40dp"
         android:backgroundTint="@color/teal_200"
+        android:text="Volver a inicio"
         android:textColor="@color/white"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/buttonRegister"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="@+id/buttonRegister"
         app:layout_constraintTop_toBottomOf="@+id/buttonRegister" />
 
     <ProgressBar
