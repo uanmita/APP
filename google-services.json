@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "810954301932",
+    "firebase_url": "https://tfg-ac-el-rinconcito-default-rtdb.firebaseio.com",
+    "project_id": "tfg-ac-el-rinconcito",
+    "storage_bucket": "tfg-ac-el-rinconcito.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:810954301932:android:e1005040e9eb138ef160c9",
+        "android_client_info": {
+          "package_name": "com.example.ac_el_rinconcito"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDdIroEM3lKJsVhHrj_bSwG0te86zfdARk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
